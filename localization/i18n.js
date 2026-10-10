@@ -223,36 +223,26 @@
     //   点击就会写入错误的键 → 类目无法切换。
     // 只翻下列下标，其余原样保留。
     // ------------------------------------------------------------------
-    var PAYLOAD_TEXT_IDX = { "category-button": [0] };
+    var PAYLOAD_TEXT_IDX = { "category-button": [0], "stat-row": [0, 1] };
     // payload 全是标识符/尺寸，一律不递归（tree 的节点 id 数组、blank 的宽高数组）
     var PAYLOAD_OPAQUE = { "tree": 1, "blank": 1 };
-
-    // 已注册的 Vue 组件名集合。
-    // 格式数组里的「裸字符串」元素在 row/column/style-row/… 模板中一律走
-    //   v-if="!Array.isArray(item)" v-bind:is="item"
-    // 即它是**组件名**而非显示文本；若被翻译（实测 upgrades→升级、
-    // prestige-button→威望-button、tree-node→树木-node）该组件将解析失败。
-    var COMPONENT_NAMES = Object.create(null);
-
-    function isComponentName(s) {
-        if (COMPONENT_NAMES[s]) return true;
-        try {
-            var C = window.Vue;
-            return !!(C && C.options && C.options.components &&
-                      Object.prototype.hasOwnProperty.call(C.options.components, s));
-        } catch (e) { return false; }
-    }
 
     function translateFormatArray(arr) {
         if (!Array.isArray(arr)) return;
         for (var i = 0; i < arr.length; i++) {
             var item = arr[i];
             if (typeof item === "string") {
-                // 裸字符串 = Vue 组件名（见 COMPONENT_NAMES 注释），绝不能翻译
-                if (isComponentName(item)) continue;
-                // 布局指令（blank/hr/...）跳过；其余裸字符串视为显示文本
-                if (/^[a-z][a-z-]*$/.test(item) && LAYOUT_TYPES[item]) continue;
-                arr[i] = translate(item);
+                // 裸字符串 = Vue 组件名，**无条件不翻译**。
+                // 依据：row / column / style-row / style-column / scroll-* / always-scroll-* /
+                //   theme-scroll-* / tooltip-row / left-row / right-row / top-column /
+                //   centered-draggable-scroll-row 的模板一律为
+                //     v-if="!Array.isArray(item)" v-bind:is="item"
+                //   即「非数组元素」必是组件名；实测全库容器数组中的裸字符串 100% 是已注册组件名，
+                //   故跳过无损（审计脚本 audit_ident.js 的 F2 项须为 0）。
+                // 注意：**不能**改成「查该组件是否已注册再决定」——layers.js 是 modFiles 的第一个
+                //   文件，可能在 components.js 注册组件之前执行（加载顺序竞态，实测桌面正常、
+                //   移动端因时序不同而暴露）：layers.js 的 "cutscene-nodes" 曾被翻成
+                //   "过场动画-nodes"，导致 Cutscene Viewer 面板空白。
                 continue;
             }
             if (!Array.isArray(item) || typeof item[0] !== "string") continue;
@@ -521,7 +511,6 @@
         if (!window.Vue || typeof window.Vue.component !== "function") return;
         var origVC = window.Vue.component;
         window.Vue.component = function (name, options) {
-            if (typeof name === "string") COMPONENT_NAMES[name] = true;
             if (options && typeof options.template === "string" && TEMPLATE_PATCH[name]) {
                 var rep = TEMPLATE_PATCH[name];
                 for (var k in rep) {
