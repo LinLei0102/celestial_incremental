@@ -212,11 +212,44 @@
     };
     var TEXT_TYPES = { "raw-html": 1, "display-text": 1, "text": 1, "info": 1, "tooltip": 1 };
 
+    // ------------------------------------------------------------------
+    // 组件 payload 数组的下标语义
+    // 背景：translateFormatArray 对 LAYOUT_TYPES 组件会递归其数组 payload，
+    //   但部分组件的 payload 不是「格式数组」，而是 [显示文本, 代码标识符…]。
+    //   category-button 的模板为
+    //     v-on:click="player.subtabs[layer][data[1]] = data[2]"
+    //   payload = [标签, microtab 组名, 索引, 禁用]。组名/索引是 player.subtabs
+    //   的键与值，一旦被当文本翻译（实测 stars→星星 / blood→鲜血 / upgrades→升级），
+    //   点击就会写入错误的键 → 类目无法切换。
+    // 只翻下列下标，其余原样保留。
+    // ------------------------------------------------------------------
+    var PAYLOAD_TEXT_IDX = { "category-button": [0] };
+    // payload 全是标识符/尺寸，一律不递归（tree 的节点 id 数组、blank 的宽高数组）
+    var PAYLOAD_OPAQUE = { "tree": 1, "blank": 1 };
+
+    // 已注册的 Vue 组件名集合。
+    // 格式数组里的「裸字符串」元素在 row/column/style-row/… 模板中一律走
+    //   v-if="!Array.isArray(item)" v-bind:is="item"
+    // 即它是**组件名**而非显示文本；若被翻译（实测 upgrades→升级、
+    // prestige-button→威望-button、tree-node→树木-node）该组件将解析失败。
+    var COMPONENT_NAMES = Object.create(null);
+
+    function isComponentName(s) {
+        if (COMPONENT_NAMES[s]) return true;
+        try {
+            var C = window.Vue;
+            return !!(C && C.options && C.options.components &&
+                      Object.prototype.hasOwnProperty.call(C.options.components, s));
+        } catch (e) { return false; }
+    }
+
     function translateFormatArray(arr) {
         if (!Array.isArray(arr)) return;
         for (var i = 0; i < arr.length; i++) {
             var item = arr[i];
             if (typeof item === "string") {
+                // 裸字符串 = Vue 组件名（见 COMPONENT_NAMES 注释），绝不能翻译
+                if (isComponentName(item)) continue;
                 // 布局指令（blank/hr/...）跳过；其余裸字符串视为显示文本
                 if (/^[a-z][a-z-]*$/.test(item) && LAYOUT_TYPES[item]) continue;
                 arr[i] = translate(item);
@@ -227,8 +260,21 @@
             if (TEXT_TYPES[type]) {
                 if (item[1] !== undefined) item[1] = translateValue(item[1]);
             } else if (LAYOUT_TYPES[type]) {
-                for (var j = 1; j < item.length; j++) {
-                    if (Array.isArray(item[j])) translateFormatArray(item[j]);
+                var idxs = PAYLOAD_TEXT_IDX[type];
+                if (idxs) {
+                    // 只翻白名单下标，其余是代码标识符（见 PAYLOAD_TEXT_IDX 注释）
+                    var pl = item[1];
+                    if (Array.isArray(pl)) {
+                        for (var t = 0; t < idxs.length; t++) {
+                            var pi = idxs[t];
+                            if (typeof pl[pi] === "string") pl[pi] = translate(pl[pi]);
+                            else if (typeof pl[pi] === "function") pl[pi] = wrapTextFn(pl[pi]);
+                        }
+                    }
+                } else if (!PAYLOAD_OPAQUE[type]) {
+                    for (var j = 1; j < item.length; j++) {
+                        if (Array.isArray(item[j])) translateFormatArray(item[j]);
+                    }
                 }
             }
         }
@@ -475,6 +521,7 @@
         if (!window.Vue || typeof window.Vue.component !== "function") return;
         var origVC = window.Vue.component;
         window.Vue.component = function (name, options) {
+            if (typeof name === "string") COMPONENT_NAMES[name] = true;
             if (options && typeof options.template === "string" && TEMPLATE_PATCH[name]) {
                 var rep = TEMPLATE_PATCH[name];
                 for (var k in rep) {
