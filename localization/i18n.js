@@ -54,10 +54,21 @@
         keys.sort(function (a, b) { return b.length - a.length; });
         var parts = [];
         masterMap = {};
+        // 第十轮加固：纯字母键（width / length / depth / points / tier / …）加一道
+        // **右向守卫**，只在「后面紧跟代码符号」时放弃匹配 ——
+        //   ①  ' " 或 =   → JS 对象键 / HTML 属性名：{'width':1}、<img width='100'>
+        //   ②  :后紧跟代码值字符 [\w#.-] → CSS 声明：style='width:69px'、width:#fff、width:12.5%
+        // 反例（照常匹配，属于文案）：
+        //   "Cost:"  "Cost:<br>"  "Requires:<br>"  "Cost: "  "depth 1"  "length per second."
+        // 原因：这些位置是代码而不是文案，被替换后会弄坏样式与表达式。
+        // 用前瞻而非后顾，兼容所有浏览器。
+        var WORD_GUARD_AFTER = "(?![\\w$'\"])(?![=])(?!:[\\w#.\\-])";
         for (i = 0; i < keys.length; i++) {
             k = keys[i];
             masterMap[k] = (k in exact) ? exact[k] : fragment[k];
-            parts.push(isPureWord(k) ? ("\\b" + escapeRe(k) + "\\b") : escapeRe(k));
+            parts.push(isPureWord(k)
+                ? ("\\b" + escapeRe(k) + "\\b" + WORD_GUARD_AFTER)
+                : escapeRe(k));
         }
         if (parts.length) {
             // 第八轮补丁：masterRe 追加「HTML 标签」分支 —— 标签整体优先原样保留，
@@ -84,6 +95,90 @@
     // 这类路径是不含 HTML 标签的独立串，标签分支保护不到，必须单独掩码。
     var PATH_RE = /\b(?:resources|Savebank|music|css|js|fragments|docs)\/[^\s'"<>()]*/g;
 
+    // ------------------------------------------------------------------
+    // 标识符（id）保护 —— 修复「A2-Iridite-Battle-End → A2-Iridite-战斗-End」
+    // 背景：词典含大量单词级 key（Start / Unlock / Battle / Dice / Space / Hive / …），
+    //   而 buildMatcher() 对纯字母 key 用具词边界 \b，短横线 '-' 也是词边界，
+    //   于是图层 / 过场动画 / 可点击项的 id 被逐段误译，渲染出半中半英的串。
+    //   （过场 id 由 components.js 的 cutscene-node 组件 v-html 出来，只经过 DOM 兜底钩子）
+    // 策略：translate() 跑词典之前把「id 形态 token」整体掩码，跑完再还原；
+    //   并禁止词典对 id 形态的整串做 exact 命中。
+    //   id 形态 = 由 '-' 连接的 ASCII 段（≥2 段）。
+    // 唯一例外：词典对该 token 有「干净」整串译文（译文不含 '-'）时，说明它是显示名
+    //   （如 Anti-Dragon→反龙、6-Sides→6 面、Honey-Cells→蜜胞），照常翻译。
+    // ------------------------------------------------------------------
+    var ID_SCAN = /[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+/g;
+    function idShape(s) {
+        return /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+$/.test(s);
+    }
+
+    // 「不是 id」的白名单：id 形态的词，只要出现在**某条词典 key 里**、且该 key 的译文是
+    // 「干净」的（译文不含 '-'），就说明它是真实术语而不是内部 id —— 例如
+    //   "Boosts Honey-Cell Gain by x"→"将蜜胞获取提升 x"   ⇒ Honey-Cell 是术语
+    //   "<h3>Post-OTF Mult</h3><br>x" →"<h3>OTF 后倍率</h3><br>x" ⇒ Post-OTF 是术语
+    //   "Single-Tab Mode"→"单标签模式"                      ⇒ Single-Tab 是术语
+    // 反之，「译文里还夹着 '-'」的条目正是被误收的 id（如 "Hive-Chamber-Fight-Start":
+    // "蜂巢-密室-战斗-开始"），不白名单，会被掩码保护。
+    // 该表在词典装载后一次性算出，运行时只做 O(1) 查表。
+    //  规则③′：判「干净」前先去掉**作标点用的短横线** —— 两侧带空白（"v1.13.1 - Akash …"）
+    //  或行首列表符号（"- Fixed xxx"）。真正的 id 短横线两侧必无空白（Hive-Chamber / Z-Jinx），
+    //  因此剥掉标点短横线不会削弱对 id 的保护（"蜂巢-密室-战斗-开始" 依旧「不干净」）。
+    //  典型受害者：更新日志标题 "<h3>v1.13.1 - Akash's Mini-Update I: Negative Diamonds</h3>"。
+    function stripPunctDash(s) {
+        return s.replace(/^\s*-\s+/, "").replace(/\s+-\s?/g, " ");
+    }
+    var ID_SAFE = (function () {
+        var safe = {};
+        function harvest(k, v) {
+            if (typeof v !== "string") return;
+            // 第十轮修正：判断「译文是否干净」前先剥掉 HTML 标签。
+            // 否则形如 "<div style='margin-top:0px'>爆炸…</div>" 的整句键，会因为
+            // 属性里的连字符（margin-top / bottomTooltip）被误判为「不干净」，
+            // 于是 "margin-top" 这类 CSS 属性名被当作 id 掩码，
+            // 导致**含内联样式的整句键全部失配**（第十轮 t_deadkeys.js 实测 9 条）。
+            var clean = v.replace(/<[^>]*>/g, "");
+            var m = String(k).match(ID_SCAN);
+            if (!m) return;
+            // 两条认定规则（满足其一即视为「显示名」，不做掩码）：
+            //  ① 译文干净（不含 '-'）              —— 术语被完全译出，如 Honey-Cell→蜜胞、Anti-Dragon→反龙
+            //  ② 该 token 在译文里**原样保留**     —— 术语有意保留英文，如
+            //     "Next building unlocked at Asc-1 Lvl-4" → "…Asc-1 Lvl-4…"、
+            //     "Celestialite F-13 rolled…" → "星灵 F-13 掷出…"、
+            //     "Increase SME-A1 & SME-A2 Cap" → "提升 SME-A1 与 SME-A2 上限"
+            //  规则②是第十轮续补：此前只认规则①，于是「译文中保留英文的术语」被判为『不干净』
+            //  而遭 ID_SCAN 掩码，导致**含该类术语的整句键在拼接语境下全部失配**
+            //  （实测：SME-A1/A2 上限键、F-13 骰子键共 2 条在拼接串上复活；21,980 条语料 0 回归）。
+            //  注意：被白名单命中的 token 会**原样返回**，不参与词典逐词替换，
+            //  因此对内部 id（cutscene-piano / dice-space / infinity-challenge）行为不变。
+            //  规则③（第十轮续补）：判「干净」前先剥掉 **changelog 列表符号**（"- "）。
+            //  更新日志每条译文都以 "- " 开头，若把项目符号也算作「译文里夹着 '-'」，
+            //  则所有 "- Fixed xxx" 条目的短横线术语（Uni-bar / edge-cases / post-iridite /
+            //  CB-Fighting / tree-layout … 共 19 个）统统不被白名单 → 被 ID_SCAN 掩码
+            //  → 这 103 条更新日志在「整段 changelog 一次性翻译」时全部失配。
+            //  实测：整段 changelog（55,612 字符）残留 token 110 → 7，新引入 0。
+            var cleanOk = stripPunctDash(clean).indexOf("-") < 0;
+            for (var i = 0; i < m.length; i++) {
+                var tok = m[i];
+                if (cleanOk || clean.indexOf(tok) >= 0) safe[tok] = 1;
+            }
+        }
+        var k;
+        for (k in exact) harvest(k, exact[k]);
+        for (k in fragment) harvest(k, fragment[k]);
+        return safe;
+    })();
+    // 第十轮续补 —— 极小规模的人工白名单（0 处例外即不维护）。
+    // 与规则②互斥的场景：术语的**译文改写了尾部**（无法靠「译文原样保留」识别），
+    // 但术语本身只出现在更新日志模板串里，因此放开掩码不会波及游戏 UI。
+    //   Z-Jinx → "Z-厄运"：术语表.md:312 裁定 Jinx→厄运（Hex 诅咒行 Α-厄运 … Μ-厄运），
+    //   故 "Z-厄运" 是正确译法，不能用规则②处理；
+    //   而 grep 全仓库，"Z-Jinx" 仅出现在 js/mod.js 的 changelog 模板串中（1 处）。
+    ['Z-Jinx'].forEach(function (t) { ID_SAFE[t] = 1; });
+
+    function isDisplayName(t) {
+        return ID_SAFE[t] === 1;
+    }
+
     function translate(str) {
         if (lang === "en" || typeof str !== "string" || str.length < 2) return str;
         if (/^[A-Za-z0-9]$/.test(str)) return str;          // 单字符（图层 id / 符号等）不译
@@ -92,11 +187,21 @@
         if (Object.prototype.hasOwnProperty.call(exact, str)) {
             // 整串 exact 命中优先：保护「含资源路径的整句键」（如角色图鉴页 <img src='resources/…'>…）
             // 这些键必须原样匹配，不能先被路径掩码拆散。
-            out = exact[str];
+            var ev = exact[str];
+            // id 保护：整串是 id 形态、且译文里仍夹着 '-' ⇒ 该词条是此前误收的 id
+            // （如 "Hive-Chamber-Fight-Start": "蜂巢-密室-战斗-开始"），原样保留；
+            // 真正的显示名译文不含 '-'（Anti-Dragon→反龙），不受影响。
+            out = (idShape(str) && typeof ev === "string" && ev.indexOf("-") >= 0) ? str : ev;
         } else {
-            // 掩码资源路径 → 词典替换 → 还原（占位符不含字母，不会被词典键命中）
+            // 掩码资源路径 / id token → 词典替换 → 还原（占位符不含字母，不会被词典键命中）
             var guards = [];
             var masked = str.replace(PATH_RE, function (m) {
+                guards.push(m);
+                return "\u0001" + (guards.length - 1) + "\u0001";
+            });
+            // 掩码 id 形态 token（词典有干净整串译文的显示名除外）
+            masked = masked.replace(ID_SCAN, function (m) {
+                if (isDisplayName(m)) return m;
                 guards.push(m);
                 return "\u0001" + (guards.length - 1) + "\u0001";
             });
@@ -443,20 +548,100 @@
             ">Description<": ">描述<"
         },
         "info-tab": {
+            // 第十轮：info-tab 是 Vue 组件模板（systemComponents.js:167 'info-tab'），
+            // 整段静态英文**不经过 translate()/DOM 观察器之外的任何钩子**，且模板里的
+            // 纯文本节点在首次渲染后不再重插 —— 只能在模板编译前做字面替换。
+            // 注意 <h2>{{modInfo.name}}</h2> 等插值原样保留（split/join 不碰 {{ }}）。
             "Changelog": "更新日志",
             "Hotkeys": "快捷键",
-            "Main Prestige Tree server": "Main Prestige Tree 服务器"
+            "Made by ": "作者：",
+            " by Acamaeda and FlamemasterNXF": "，由 Acamaeda 与 FlamemasterNXF 制作",
+            "Songs made by Sweetlolipop (My brother)": "配乐由 Sweetlolipop 制作（我的弟弟）",
+            "The Prestige Tree made by Jacorb and Aarex": "The Prestige Tree 由 Jacorb 与 Aarex 制作",
+            "Art by Citrine (Also known as lumen/niko/zittara) and a lil bit by JToh": "美术：Citrine（又名 lumen/niko/zittara），少量由 JToh 绘制",
+            "Galaxy thumbnail by Blepoo": "星系缩略图：Blepoo",
+            "Typo check by Piterpicher": "错别字校对：Piterpicher",
+            ">Soundtrack<": ">原声带<",
+            "The Modding Tree Discord": "The Modding Tree Discord",
+            "Main Prestige Tree server": "Main Prestige Tree 服务器",
+            "Time Played: ": "游戏时长：",
+            "b: Switch buymax mode": "b: 切换购买上限模式",
+            "i: Switch to incremental node": "i: 切换到增量节点",
+            "m: Switch to meta-prestige node": "m: 切换到 Meta-威望节点",
+            "c: Switch to crafting node": "c: 切换到合成节点",
+            "m+shift: Meta-prestige reset": "m+shift: Meta-威望重置",
+            "h: Switch to hub node (uses a travel if not in dimensional realm)": "h: 切换到枢纽节点（不在维度领域内时消耗一次旅行）"
         },
         "options-tab": {
-            "Save": "保存",
+            // 第十轮：options-tab 同样是 Vue 组件模板（systemComponents.js:204），
+            // 静态标签不经过 translate()；且这些按钮文本节点首次渲染后不再重插。
+            // ⚠ 顺序敏感：`"Autosave: "` 必须排在子串键 `"Save"` 之前，
+            //    否则 split("Save") 会把 "Autosave" 拆成 "Auto保存"。
+            "Autosave: ": "自动保存：",
+            "Offline Prod: ": "离线产出：",
+            "Theme: ": "主题：",
+            "Show Milestones: ": "显示里程碑：",
+            "High-Quality Tree: ": "高质量树：",          // 挡住 "Tree"→树木 误替换
+            "Completed Challenges: ": "已完成挑战：",
+            "Single-Tab Mode: ": "单标签模式：",
+            "Shift-Click to Toggle Tooltips: ": "Shift+点击切换提示框：",
+            "Show Milestone Popups: ": "显示里程碑弹窗：",
+            "Toggle Music: ": "音乐开关：",
+            "Toggle Hotkeys: ": "快捷键开关：",
+            "Toggle Particles: ": "粒子开关：",
+            // 插值表达式里的字面量：连同 "?" 与 ":" 一起替换，
+            // 避免 "ON"/"On" 作为子串误伤 onclick / ONLY 等代码片段
+            "?\"ON\":\"OFF\"": "?\"开\":\"关\"",
+            "?\"HIDDEN\":\"SHOWN\"": "?\"隐藏\":\"显示\"",
+            "?\"ALWAYS\":\"AUTO\"": "?\"总是\":\"自动\"",
+            "?\"Unmute\":\"Mute\"": "?\"取消静音\":\"静音\"",
+            "?\"On\":\"Off\"": "?\"开\":\"关\"",
+            // ⚠ 必须带 ">…<" 定界符：裸键 "Save" 会把 onclick="exportSave()" /
+            //    "importSave()" 里的函数名改成 export保存() / import保存()，直接弄坏按钮。
+            ">Save<": ">保存<",
             "HARD RESET": "硬重置",
             "Export to clipboard": "导出到剪贴板",
             "Import": "导入"
         },
-        "buyable": {
-            "Buy 1": "购买 1",
-            "Buy Max": "购买最大"
+        // 第十轮：树节点 / 网格节点 的默认提示框（systemComponents.js:48 / :114）
+        // 这些串在模板表达式里用 ' + ' 拼接，渲染进 <tooltip v-html> 的文本节点，
+        // 因含动态数值，只能改模板字面量本体（保留 '' 定界符）。
+        "tree-node": {
+            "'Reach '": "'需要 '",
+            "' to unlock (You have '": "' 才能解锁（你拥有 '",
+            "tmp[layer].baseResource + ')'": "tmp[layer].baseResource + '）'",
+            "I am a button!": "我是一个按钮！"
         },
+        "grid-node": {
+            "'Reach '": "'需要 '",
+            "' to unlock (You have '": "' 才能解锁（你拥有 '",
+            "tmp[layer].baseResource + ')'": "tmp[layer].baseResource + '）'",
+            "I am a button!": "我是一个按钮！"
+        },
+        // 第十轮：资源显示条（components.js:657 'resource-display'）
+        // 静态字面量在 {{ }} 之间，用 "}}" / ">" 做定界符精确定位；
+        // ⚠ 这里**不能**用裸键 " is "（会被 masterRe 当成子串全局替换，
+        //    实测把 "Cloud gain is multiplied by x1.5" 弄成 "…获取 为 multiplied by…"）
+        "resource-display": {
+            ">You have {{": ">你拥有 {{",
+            ">You are gaining {{": ">你正在获得 {{",
+            "}} per second": "}} 每秒",
+            ">Your best {{": ">你的最佳 {{",
+            "}} is {{": "}} 为 {{",
+            ">You have made a total of {{": ">你累计已获得 {{"
+        },
+        // 第十轮：里程碑的自动开关按钮（components.js:638 'toggle'）
+        // 模板形如 {{player[data[0]][data[1]]?"ON":"OFF"}}，ON/OFF 是插值表达式里的字面量
+        "toggle": {
+            "?\"ON\":\"OFF\"": "?\"开\":\"关\""
+        },
+        // 第十轮：黑心（Black Heart）连击里程碑按钮（components.js:1948 'bh-milestone'）
+        // 模板里 ' Combo (' 已被词典译作 ' 连击（'，此处把收尾的 "/3)" 补成全角
+        "bh-milestone": {
+            "/3)<br><small>[": "/3）<br><small>["
+        },
+        // 注：components.js 的 'buyable' 模板本身不含 Buy 按钮（只有 ex-/dark-/rounded- 系才有），
+        //    故此处不再为 'buyable' 配置空补丁（第十轮 _audit/t_templates.js 验证发现）。
         "ex-buyable": {
             "Buy 1": "购买 1",
             "Buy Max": "购买最大"
