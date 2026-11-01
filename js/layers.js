@@ -88,6 +88,11 @@
 
        // stopRain()
 
+
+        //KEEP THIS FOR NOW
+        player.ak.guess = ""
+        player.el.guess = ""
+
         // START OF PRE-OTF-MULT MODIFIERS
         player.i.preOTFMult = new Decimal(1)
         if (hasUpgrade("s", 11)) player.i.preOTFMult = player.i.preOTFMult.mul(10)
@@ -188,11 +193,15 @@
         player.i.doomSoftcapStart = new Decimal("1e2000000")
         player.i.doomSoftcapStart = player.i.doomSoftcapStart.mul(levelableEffect("car", 313)[0])
         player.i.doomSoftcapStart = player.i.doomSoftcapStart.pow(buyableEffect("fa", 405))
+        if (hasUpgrade("anl", 41)) player.i.doomSoftcapStart = player.i.doomSoftcapStart.mul("1e150000")
+
+        if (hasMilestone("hor", 11)) player.i.doomSoftcapStart = player.i.doomSoftcapStart.pow(player.cp.replicantiPointEffect)
 
         // SOFTCAP WEAKENER
         let doomWeaken = new Decimal(1)
         doomWeaken = doomWeaken.mul(buyableEffect("fa", 401))
         if (player.zarDungeon.zarDefeated) doomWeaken = doomWeaken.mul(1.5)
+        if (hasMilestone("rar", 11)) doomWeaken = doomWeaken.mul(player.bee.beeEffect)
 
         // PLACE ANY BASE MODIFIERS TO SOFTCAP OF DOOM BEFORE SCALING
         let amt = player.points
