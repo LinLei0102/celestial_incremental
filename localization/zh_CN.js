@@ -14072,7 +14072,7 @@ window.CELESTIAL_I18N = {
       "Beryllium-10": "铍-10",
       "</h3> rage essence.": "</h3> 狂怒精华。",
       "which are giving ": "正提供 ",
-      "</h3> space decay. (+": "</h3> 空间衰变。（+",
+      "</h3> space decay. (+": "</h3> 空间衰变。(+",
       "Orange Multiplier": "橙色倍率",
       "You must click the particles in the correct numbered order in order to reset.": "你必须按正确的编号顺序点击粒子才能重置。",
       "<small>1/3 Clicked!</small>": "<small>已点击 1/3！</small>",
@@ -14469,7 +14469,7 @@ window.CELESTIAL_I18N = {
       "(Based on space)": "（基于空间）",
       "Resets colored radiation, buyables, everything in space energy and also performs a starmetal equivalent reset.": "重置彩色辐射、可购项与空间能量内的一切，并额外执行一次等效星钢重置。",
       "Space decay and generators only update when you click dark radiation.": "空间衰变与发生器只在你点击黑暗辐射时更新。",
-      "Divides universe reset requirement by /<h3>": "使宇宙重置需求除以 /<h3>",
+      "Divides universe reset requirement by /<h3>": "使宇宙重置需求除以 <h3>",
       " Space Radiation<br>Reset Complete!</small>": " 空间辐射<br>重置完成！</small>",
       "Mind and Heart Multiplier": "心灵与红心倍率",
       "Softcap Extension Multiplier^20": "软上限延长倍率^20",
@@ -14583,6 +14583,7 @@ window.CELESTIAL_I18N = {
       "<h2>Leave your battle.": "<h2>离开你的战斗。",
       "<h5>Game by Icecreamdude.<br>Music by Icecreamdude and 150percent.<br>Content by Icecreamdude, Forwaken, Bumpy, Akash.<br>Additional development by Ruzz and Deusovi.<br>Art by Bumpy, Akash and other contributors.<br>Tested by a bunch of people.<br>": "<h5>游戏：Icecreamdude。<br>音乐：Icecreamdude 与 150percent。<br>内容：Icecreamdude、Forwaken、Bumpy、Akash。<br>附加开发：Ruzz 与 Deusovi。<br>美术：Bumpy、Akash 及其他贡献者。<br>测试：一大堆人。<br>",
       "<img src='resources/aniciffo.png' width='100' height='100'><br>Aniciffo's story is such one filled with sadness and despair. Forced from an early age to a chamber just to serve as energy... a purpose he didn't want, Just to watch that be destroyed without being able to do anything about it. It does make me think, whats the nature of said \"celestial evil\"? Some Celestials like Aleph contained theirs, But aniciffo didn't..and yet he never killed a single human. Could it be the source of said power that determines it?": "<img src='resources/aniciffo.png' width='100' height='100'><br>Aniciffo 的故事满是悲伤与绝望。他幼年便被关进一间密室，只为充当能量……那不是他想要的用途，却只能眼睁睁看着它被毁，无能为力。这让我不禁思考：所谓「Celestial 之恶」究竟是什么？像 Aleph 这样的 Celestial 将其约束住了，而 Aniciffo 没有……但他从未杀过任何一个人类。决定这一切的，会不会正是那力量的来源？",
+      "Space Radiation": "空间辐射",
     },
 
     fragment: {
@@ -17644,6 +17645,18 @@ window.CELESTIAL_I18N = {
       "- Check Nox perks!": "- 快看 Nox 的特权！",
       "-Made a lot of balancing changes": "- 做了大量平衡性调整",
       "-Fixed a lot of bugs": "- 修复了大量 bug",
+      "</h3> space radiation. (+": "</h3> 空间辐射。(+",
+      "</h3> dark radiation. (+": "</h3> 黑暗辐射。(+",
+      "Boosts normality gain by x<h3>": "使常态获取提升 x<h3>",
+      "/click)": "/次)",
+      " space decay per dark radiation click.": " 空间衰变，每次点击黑暗辐射。",
+      " decay generators per dark radiation click.": " 衰变发生器，每次点击黑暗辐射。",
+      " decay generators^2 per dark radiation click.": " 衰变发生器^2，每次点击黑暗辐射。",
+      " decay generators^3 per dark radiation click.": " 衰变发生器^3，每次点击黑暗辐射。",
+      "This buyable is currently boosting production by x": "该可购项当前使产量提升 x",
+      " Space Radiation": " 空间辐射",
+      "<br>Decay Generator": "<br>衰变发生器",
+      "/10 Clicked!</small>": "/10 已点击！</small>",
     }
   }
 
