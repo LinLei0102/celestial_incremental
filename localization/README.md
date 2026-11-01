@@ -327,6 +327,37 @@ display() {
 排查手段：`_audit/probe_sr.js` —— 摆一份带数值的假存档、切到该层、抓全部文本节点，
 打印「仍含英文字母」的条目。比翻源码快得多。
 
+### 16. `raw-html` 里的 HTML 标签会切断文本节点 —— 键**不能跨标签**
+
+aniciffo 层「彩色辐射」页的写法是：
+
+```js
+["raw-html", () => hasUpgrade("ani", 11) ? "You have <h3>" + format(amt) + "</h3> red radiation. (+" + ... : ""]
+```
+
+浏览器把它拆成 **text / `<h3>` / text** 三段，引擎只拿到文本节点：
+
+- `You have `
+- ` red radiation. (+172.88/6.00s)`
+- `Costs ` + ` dark radiation.`
+
+所以任何含 `<h3>` 的键（例：`Boosts dark radiation gain by x<h3>`）在真机上**永远不命中**，
+必须按标签边界拆成纯净文本键：
+
+| 键 | 值 |
+|---|---|
+| ` red radiation. (+` | ` 红色辐射。(+` |
+| ` dark radiation.` | ` 黑暗辐射。` |
+| ` red radiation` | ` 红色辐射` |
+
+反过来，**颜色词不能单独建键**：`"Red": "红"` 会把 ` Red Radiation</small>` 变成「红 辐射」，
+必须整段收（`" Red Radiation</small>"` → `" 红色辐射</small>"`）。
+
+另外：`formatTime()` 的入参是**秒**。假存档里填 6 / 9 / 12 才显示 `6.00s`，
+填 6000 会变成 `1.67h`，对不上截图就别怀疑字典。
+
+排查手段：`_audit/probe_color.js`（摆假存档 → 切到 ani 层 `Color Radiation` → 抓文本节点）。
+
 ## 说明
 
 - 本汉化层与原游戏源码解耦，可整体删除（移除上述 `<script>` 行即可回到英文原版）。
