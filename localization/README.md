@@ -296,6 +296,37 @@ window.__bgfix.repair()   // 手动触发一次修复
     `player.ak.guess = ""` / `player.el.guess = ""`。所以只要回到 U1 让 `i` 层跑起来，
     膨胀值就会被自动清掉；但它**不会**缩小已写进磁盘的旧存档，也救不回已经翻倍的轮次。
 
+### 15. `buyables[x].display()` 的说明是**多行拼接串**，要按「动态断点」拆成多条键
+
+`js/DarkAU1/spaceRadiation.js` 这类写法：
+
+```js
+display() {
+    return "which are giving " + format(x) + " space decay per dark radiation click.\n\
+        This buyable is currently boosting production by x" + format(y) + ".\n\
+        Cost: " + format(tmp[this.layer].buyables[this.id].cost) + " Space Radiation"
+}
+```
+
+拼完是一整串带 `\n` 与缩进空格的文本，**永远不可能整串命中**，只能靠片段。
+办法是沿着每个 `+ format(...)` 把静态段切开，逐段建片段键：
+
+| 键 | 值 |
+|---|---|
+| ` space decay per dark radiation click.` | ` 空间衰变，每次点击黑暗辐射。` |
+| ` decay generators^2 per dark radiation click.` | ` 衰变发生器^2，每次点击黑暗辐射。` |
+| `This buyable is currently boosting production by x` | `该可购项当前使产量提升 x` |
+| ` Space Radiation` | ` 空间辐射` |
+
+注意两点：
+1. 键里**不要带行首缩进**（源码里是 `\n` + 20 个空格），否则换个缩进就失配；
+   把带空格的边界放进键尾/键首就够了。
+2. `^2` / `^3` 这类上标必须**各写一条**，不能只写 ` decay generators per ...`，
+   否则 `^2` 会留在中文后面变成「衰变发生器，每次点击…^2」。
+
+排查手段：`_audit/probe_sr.js` —— 摆一份带数值的假存档、切到该层、抓全部文本节点，
+打印「仍含英文字母」的条目。比翻源码快得多。
+
 ## 说明
 
 - 本汉化层与原游戏源码解耦，可整体删除（移除上述 `<script>` 行即可回到英文原版）。
