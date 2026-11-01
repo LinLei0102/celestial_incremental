@@ -109,6 +109,9 @@
     // ------------------------------------------------------------------
     var ID_SCAN = /[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+/g;
     function idShape(s) {
+        // 元素-质量数（Carbon-14 / Uranium-235 / Einsteinium-253 …）不是内部 id，
+        // 其短横线是化学命名的一部分，必须允许译文里保留 '-'。
+        if (/^[A-Z][a-z]+-\d+$/.test(s)) return false;
         return /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+$/.test(s);
     }
 

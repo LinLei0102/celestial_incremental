@@ -218,6 +218,51 @@ window.__bgfix.repair()   // 手动触发一次修复
    | `probe_d1_live.js` / `probe_all_live.js` | 真机探针：D1（61 状态）/ 全游戏（458 状态），逐状态快照并判定残留 |
    | `a_probe_diff.js` | 两次真机快照对拍（数字归一化后逐条比对），用来证明改动**零回归** |
 
+## 第十二轮踩坑记录（上游 v1.15「衰败降临」同步后的补齐）
+
+> 本轮范围：上游同步带来的 910 条新串 → 剧情 1,063 句人工翻译 + AD1／飞船战／杂项 262 条，
+> 并回头把历史遗留的「半翻」清掉（710 → 47，剩余全是专名与 `tick`／`MK` 这类技术词）。
+
+7. **`exact` 里的键会被当片段用 —— 单字／虚词键是毒药。**
+   引擎把 `exact` 与 `fragment` 的键**合进同一个 `masterRe`**（`masterMap[k] = k in exact ? exact[k] : fragment[k]`），
+   所以一条 `"THE": "这"` 的 exact 会让 `"THE WORLD"` 命中片段、变成 `这 WORLD`。
+   同类的 `"true": "开"` 会把 `He is the true villain here!` 变成 `He is the 开 villain here!`。
+   已删 `"THE"`；`"true"` 保留（布尔开关要用），靠整句 exact 兜住散文。
+   **新增键前先自问：这条键会不会作为子串出现在别的句子里？**
+
+8. **` for ` 这类虚词片段会产出乱句，能整句就整句。**
+   `" for ": "，造成 "` 曾把 `Watch for Bombs` 变成 `Watch，造成 Bombs`、
+   `Regen is halved for all characters` 变成 `Regen 减半，造成 all characters`。
+   已改为 `"，"`。判据：一条片段如果单独拿出来不成短语，就不要进 `fragment`。
+
+9. **`exact` 段以 `    },` 收尾，`fragment` 段以 `    }` 收尾 —— 两者不能混。**
+   往 `exact` 末尾插条目时，`next(... lines[i] == "    }" ...)` 会一路跳过 `    },`
+   一直找到 `fragment` 的收尾，结果把整批 exact 塞进了 `fragment` 段（本轮真踩了，364 条）。
+   正确边界：`lines[i].strip() == "}," and lines[i+2].strip().startswith("fragment:")`。
+
+10. **半翻扫描必须先反转义再比对。**
+    `strList()` 用正则抓源码字面量时，`\"` 这类转义是原样留在捕获组里的，
+    直接喂给 `translate()` 会把含引号的整句判成「未翻」（本轮 1 条长句误报）。
+    另外要排除**引号配对错位产物**：`" + format(tmp[this.layer].buyables[this.id].cost) + "`
+    这类「上一个串的收尾引号 + 下一个串的开头引号」会被当成一个字符串，
+    里面是 JS 代码而不是界面文案，必须按 `^\+ *(format|formatWhole|…)\(` 过滤掉。
+
+11. **罗马数字与 2~4 位全大写缩写不算「残留英文」。**
+    `BI IP Upgrade I → BI 无限点升级 I` 是完全正确的译文。
+    判据里要剥掉 `\b[IVXLC]{1,6}\b` 与 `\b[A-Z]{2,4}\b`，否则 659 条里 244 条是误报。
+
+12. **changelog 是单个大模板串，新版本段落只能靠长片段补。**
+    v1.15 那段是 `- DUE TO THE SECRETIVE NATURE…` 这种整行英文，
+    加 5 条**整行**片段（`DUE TO THE…`、`v1.15 - Decaying Descent`、`- Check Nox perks!`、
+    `-Made a lot of balancing changes`、`-Fixed a lot of bugs`）即可让
+    `_cl_now.js` 的残留 token 从 24 条降到 `[]`。含标点的长片段是安全的：
+    `isPureWord()` 只对**纯字母单token**加 `\b` 守卫，多词键走 `escapeRe()` 直接子串匹配。
+
+13. **AD1 真机探针的「残留」要以专名为终点。**
+    补完后 `probe_ad1.js` 剩 13 条，全是 `Eclipse` / `Nox` / `Aniciffo` / `Marcel` / `Celestial` / `BH`
+    这类按术语表保留的英文，属预期终态；`probe_d1_live.js` 的 61 个状态各剩 3 条，
+    是侧栏图层符号 `DG` / `LE` / `GJ`（`symbol:` 字段，本来就是图标不是文案）。
+
 ## 说明
 
 - 本汉化层与原游戏源码解耦，可整体删除（移除上述 `<script>` 行即可回到英文原版）。
