@@ -263,6 +263,39 @@ window.__bgfix.repair()   // 手动触发一次修复
     这类按术语表保留的英文，属预期终态；`probe_d1_live.js` 的 61 个状态各剩 3 条，
     是侧栏图层符号 `DG` / `LE` / `GJ`（`symbol:` 字段，本来就是图标不是文案）。
 
+14. **导出存档暴涨到几十 MB —— 原版 `importSave()` 缺一层 UTF-8 解码。**
+    导出与导入用了不对称的编解码：
+
+    | 位置 | 代码 |
+    |---|---|
+    | `exportSave()` / `exportFile()` | `btoa(unescape(encodeURIComponent(json)))` |
+    | `load()` | `JSON.parse(decodeURIComponent(escape(atob(s))))` |
+    | `importSave()` | `JSON.parse(atob(s))` ← **少了 `decodeURIComponent(escape(...))`** |
+
+    「导出」把字符串的 UTF-8 字节按 Latin-1 逐个字符展开，「导入」却没还原。
+    于是每个非 ASCII 字符被拆成 2~3 个 Latin-1 码点；**每做一次「导出 → 导入」字符数翻一倍**。
+
+    全存档唯一的非 ASCII 内容，是 `elements.js:30` / `akash.js:34` 给空猜词框填的
+    零宽连接符 `U+200D`：
+    ```js
+    if (player.el.guess === "") { player.el.guess = "\u200d" }
+    ```
+    它们的清理逻辑是 `replaceAll("\u200d","")`，膨胀后字符串里只剩 Latin-1 乱码、
+    早已不含 `U+200D`，所以**永远清不掉，只能继续变大**。
+
+    实测：1 个 `U+200D`（3 字节）经 **21 轮**「导出→导入」= `3 × 2^20` = **3,145,728 字符 = 6 MiB**；
+    `el.guess` + `ak.guess` 合计 12.58 MB，占该存档 JSON 的 **98.6%**（17 MB 文件 → 瘦身后 230 KB）。
+
+    判定特征（一眼认出来）：`el.guess` 与 `ak.guess` **完全相同**、长度是 `3 × 2^n`、
+    字符只有 `U+00C3` `U+00C2` `U+0082` `U+0083` 这几种。
+
+    修复见 `localization/savefix.js`：运行时替换 `importSave` 补上解码，并加低频守卫
+    （两个猜词框超过 64 字符即清空，正常输入 ≤ 8 字符，无副作用）。未改动 `js/` 下任何文件。
+
+    附带发现：`js/layers.js:93-94`（`i` 层 / Origin，主宇宙）每帧无条件
+    `player.ak.guess = ""` / `player.el.guess = ""`。所以只要回到 U1 让 `i` 层跑起来，
+    膨胀值就会被自动清掉；但它**不会**缩小已写进磁盘的旧存档，也救不回已经翻倍的轮次。
+
 ## 说明
 
 - 本汉化层与原游戏源码解耦，可整体删除（移除上述 `<script>` 行即可回到英文原版）。
