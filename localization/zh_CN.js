@@ -14387,7 +14387,7 @@ window.CELESTIAL_I18N = {
       "(Based on dark radiation)": "（基于黑暗辐射）",
       "Boosts space buyable effects by ^<h3>": "使空间可购项效果提升 ^<h3>",
       "Performs a space radiation level reset": "执行一次空间辐射等级重置",
-      "Boosts eclipse timer tickspeed by x<h3>": "使蚀计时器的 tick 速度提升 x<h3>",
+      "Boosts eclipse timer tickspeed by x<h3>": "使蚀计时器的刻速提升 x<h3>",
       "Boosts length, width, and depth by x<h3>": "使长、宽、深提升 x<h3>",
       " Mind Radiation<br>Reset Complete!</small>": " 心灵辐射<br>重置完成！</small>",
       "Throws an axe, dealing ": "投掷一把斧头，造成 ",
@@ -14585,6 +14585,13 @@ window.CELESTIAL_I18N = {
       "<img src='resources/aniciffo.png' width='100' height='100'><br>Aniciffo's story is such one filled with sadness and despair. Forced from an early age to a chamber just to serve as energy... a purpose he didn't want, Just to watch that be destroyed without being able to do anything about it. It does make me think, whats the nature of said \"celestial evil\"? Some Celestials like Aleph contained theirs, But aniciffo didn't..and yet he never killed a single human. Could it be the source of said power that determines it?": "<img src='resources/aniciffo.png' width='100' height='100'><br>Aniciffo 的故事满是悲伤与绝望。他幼年便被关进一间密室，只为充当能量……那不是他想要的用途，却只能眼睁睁看着它被毁，无能为力。这让我不禁思考：所谓「Celestial 之恶」究竟是什么？像 Aleph 这样的 Celestial 将其约束住了，而 Aniciffo 没有……但他从未杀过任何一个人类。决定这一切的，会不会正是那力量的来源？",
       "Space Radiation": "空间辐射",
       "Color Radiation": "彩色辐射",
+      "Time Radiation": "时间辐射",
+      "Time Multiplier": "时间倍率",
+      "Time Multiplier^2": "时间倍率^2",
+      "Time Multiplier^3": "时间倍率^3",
+      "Red Multiplier": "红色倍率",
+      "Yellow Multiplier": "黄色倍率",
+      "Space Multiplier": "空间倍率",
     },
 
     fragment: {
@@ -17022,7 +17029,7 @@ window.CELESTIAL_I18N = {
       "cooldowns": "冷却",
       "ship cooldowns": "飞船冷却",
       "star reset cooldowns": "星球重置冷却",
-      "tickspeed": "tick 速度",
+      "tickspeed": "刻速",
       "eclipse": "蚀",
       "time in eclipse": "蚀中时间",
       "time since uni-reset": "宇宙重置以来时间",
@@ -17698,6 +17705,16 @@ window.CELESTIAL_I18N = {
       "which increase space building effects by +": "将空间建筑效果提升 +",
       "which raise booster effect by ^": "将增幅器效果提升至 ^",
       "which are boosting temporal radiation stone gain by x": "将时间辐射石获取提升 x",
+      // ============ 第十七轮补丁：时间辐射（tr）层可购项 ============
+      "which are boosting eclipse timer tickspeed by x": "将蚀计时器刻速提升 x",
+      "which are boosting red radiation gain by x": "将红色辐射获取提升 x",
+      "which are boosting orange radiation gain by x": "将橙色辐射获取提升 x",
+      "which are boosting yellow radiation gain by x": "将黄色辐射获取提升 x",
+      "which are boosting space radiation gain by x": "将空间辐射获取提升 x",
+      "which are boosting mind and heart radiation gain by x": "将心灵与红心辐射获取提升 x",
+      "which are extending the second unavoidable softcap by x": "将第二个不可避免的软上限延长 x",
+      " time radiation": " 时间辐射",
+      " Time Radiation": " 时间辐射",
     }
   }
 
