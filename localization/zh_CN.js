@@ -17870,6 +17870,18 @@ window.CELESTIAL_I18N = {
       " kres points per second. (based on level & ascension)": " Kres 点数/秒。（基于等级与飞升）",
       "gwa points": "Gwa 点数",
       "The Hive": "蜂巢",
+      " to time radiation (based on radiation)": " 时间辐射（基于辐射）",
+      " to electron gain (based on universe resets)": " 电子获取（基于宇宙重置）",
+      " to points (based on eclipse timer)<br>": " 点数（基于蚀计时器）<br>",
+      " to eclipse timer tickspeed<br></h5>": " 蚀计时器刻速<br></h5>",
+      " to radioactive pylon energy gain": " 辐射尖塔能量获取",
+      " to eclipse timer tickspeed.<br>": " 蚀计时器刻速。<br>",
+      " to eclipse punchcard XP conversion rate.<br>": " 蚀穿孔卡 XP 转换率。<br>",
+      " to eclipse cooldown.": " 蚀冷却。",
+      " to effective deposited shard count<br><small>(Based on punchcard level)</small>": " 有效沉积碎片数<br><small>（基于穿孔卡等级）</small>",
+      " (based on radiation)": " （基于辐射）",
+      " (based on universe resets)": " （基于宇宙重置）",
+      " (based on eclipse timer)": " （基于蚀计时器）",
     }
   }
 
