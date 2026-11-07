@@ -394,6 +394,34 @@ if (/^[A-Za-z][a-z]+-\d+$/.test(t) && !/^Refinements-/i.test(t)) return true;
 - `_audit/t_dec.js` 覆盖 36 条衰变层 / 穿孔卡文本。
 - `_audit/probe_dec.js` 真机切 `dec` 层 Main，残留英文应为 0。
 
+### 18. DOM 观察器有步进上限 —— 更新日志「前一半中文、后一半英文」
+
+`js/mod.js:1276` 的 `changelog` 是一个 5.6 万字符的模板串，经 `["raw-html", …]`
+**一次性**插入 DOM，展开成 3000+ 节点。
+
+`i18n.js` 的 `hookDom()` 对新增子树有 `MAX_WALK = 1500` 的步进上限（第五轮为防卡顿加的），
+超出的节点**不翻译**；而这些静态文本节点此后不会重新插入，于是永久停留在英文。
+
+症状极具迷惑性：
+- `CI18N.translate(整段 changelog)` 输出**全中文**（走 exact 整串命中）
+- `_audit/_cl_now.js` 报「残留 token: []」
+- 但真机打开 `changelog-tab`，**从 v1.6 开始到最底部整段是英文**
+
+修法（第二十轮）：按新增子树的**文本量**判定，超长块不设上限。
+
+```js
+var BIG_BLOCK = 8000;
+// MutationObserver 回调里：
+var big = (nd.textContent || "").length > BIG_BLOCK;
+walk(nd, big ? Infinity : undefined);
+```
+
+**教训**：`translate()` 的单元测试**测不到** DOM 路径。凡是「整块超长 raw-html」
+（更新日志、存档库列表、成就墙），必须用真机探针看 DOM，不能只看 `translate()`。
+
+排查手段：`_audit/probe_endgame_scan.js`（载入残局存档 → 遍历 193 个页签 →
+逐个抓文本节点 → 输出 `probe_endgame.json`），比人工截图快得多。
+
 ## 说明
 
 - 本汉化层与原游戏源码解耦，可整体删除（移除上述 `<script>` 行即可回到英文原版）。

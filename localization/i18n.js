@@ -725,6 +725,10 @@
         // 一次插入的子树常超 300 节点，旧上限会截断后续静态文本节点（如 upgrade 的
         // "Cost: " 模板字面量），且这些静态节点一旦创建不再重新插入，永不补翻。
         var MAX_WALK = 1500;
+        // 第二十轮：更新日志整段（js/mod.js 的 changelog 模板串）经 raw-html 一次插入
+        // 会生成 3000+ 节点，远超 1500 的步进上限 —— 被截断的后半截文本节点此后永不重插，
+        // 于是出现「日志前一半中文、后一半英文」。按新增子树的文本量判定：超长块不设上限。
+        var BIG_BLOCK = 8000;
         // budget 可由调用方覆盖（启动全量扫描传 Infinity）
         function walk(node, budget) {
             var limit = (typeof budget === "number") ? budget : MAX_WALK;
@@ -753,7 +757,12 @@
                 if (m.type !== "childList") continue;
                 var added = m.addedNodes;
                 for (var j = 0; j < added.length; j++) {
-                    if (added[j].nodeType === 1 || added[j].nodeType === 3) walk(added[j]);
+                    var nd = added[j];
+                    if (nd.nodeType === 3) { walk(nd); continue; }
+                    if (nd.nodeType !== 1) continue;
+                    var big = false;
+                    try { big = (nd.textContent || "").length > BIG_BLOCK; } catch (e) { big = false; }
+                    walk(nd, big ? Infinity : undefined);
                 }
             }
         });

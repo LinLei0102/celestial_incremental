@@ -6857,6 +6857,8 @@ window.CELESTIAL_I18N = {
       "<small>Boosts wheel point gain by x": "<small>提升转盘点获取 x",
       "which are boosting anger gain by x": "将愤怒获取提升 x",
       "which are multiplying XPBoost by x": "将 XP 增幅乘算 x",
+      "and dark radiation gain by x": "及黑暗辐射获取 x",
+      "You find yourself in an enclosed room, with dimly lit blue light surrounding the area.": "你发现自己身处一间封闭的房间里，昏暗的蓝光笼罩着四周。",
       "Boosts cante energy gain by x<h3>": "提升 Cante 能量获取 x<h3>",
       "Multiply your next orb gain by x": "将你下一次宝珠获取乘算 x",
       "Boosts starmetal alloy gain by x": "提升星钢合金获取 x",
