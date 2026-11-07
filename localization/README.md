@@ -422,6 +422,52 @@ walk(nd, big ? Infinity : undefined);
 排查手段：`_audit/probe_endgame_scan.js`（载入残局存档 → 遍历 193 个页签 →
 逐个抓文本节点 → 输出 `probe_endgame.json`），比人工截图快得多。
 
+## 第二十一轮踩坑记录（黑心战斗日志 / 复数残留）
+
+黑心（BH）的战斗日志不是模板串，而是 `bhEffectText()` 一行行拼出来的：
+
+```js
+// js/Black Heart/blackHeartFunctions.js:470-490
+{角色A} + " " + sign[0] + " " + {角色B} + "'s " + type + " by " + sign[1] + num
+// sign[0] = "buffed" / "nerfed"；type = damage/defense/health/agility/luck/regen/time/cur
+// num 形如 "+0.64%." / "-5."
+```
+
+三种拼接分支（第三人称 / 自身 its / 星灵 celestialite）各要一套键，只补一种就会出现
+「一半中文一半英文」的日志。
+
+### 第 19 条：`masterRe` 是**左起优先**，不是纯长度优先
+
+`buildMatcher()` 把键按长度降序排进 alternation，但 JS 正则**先按位置**再按分支顺序：
+同一位置才轮到长度。所以
+
+- 长键想赢过短键，必须**起点相同**。
+- 词典里那条 `" by +" -> " +"`（17324 行）起点比 `"'s damage by +"` 更左，
+  会把 `damage by +0.64%` 的 `by` 静默吃掉 → 看着像「翻译漏词」。
+  修法：新键**显式把 `by ±` 收进键尾**（`"'s damage by +"`），起点相同、长度更长才能覆盖。
+- 同理 `" matos dust!"`（带前导空格）赢过 `"matos dust! (You have "`（不带），
+  因为前者起点在空格上。**整键必须带上和短键相同的前导空格**。
+
+### 第 20 条：空格只被吃一次 —— `its` 分支的键不能带前导空格
+
+`" buffed "` 以空格结尾，匹配后扫描位置已推进到 `its`，前导空格**不存在了**。
+所以 `" its health by +"`（带前导空格）**永远失配**，必须写成 `"its health by +"`。
+症状：`Eclipse buffed its health by +5.` → `Eclipse 增益了 its 生命 +5.`
+（`buffed` 译了、`its` 和 `by` 漏了，正是空格竞争断成两截的指纹）
+
+**判据**：只要左侧键以空格结尾，右侧键就**不能再以空格开头**。
+
+### 第 21 条：复数不是自动的
+
+`js/DarkU1/grassJump.js:406` 是
+`"You have " + n + " Grass Jumps"`，词典只有 `"Grass Jump"`，
+于是渲染成「你拥有 20 草地跳跃**s**」。凡是源码里带 `s` 的复数形式，
+都要单独建键（`"Grass Jumps"`），不能指望单数键吃掉复数。
+
+同类排查脚本：`_audit/t_bhlog.js` —— 抽出所有 `bhLog(...)` 实参里的字符串字面量，
+逐个丢给真实引擎翻译，剥掉 HTML 标签后仍有英文单词的就列出来
+（95 个调用 / 276 条字面量，目前只剩「半截 span 标签」与 `WOW!` 属正常）。
+
 ## 说明
 
 - 本汉化层与原游戏源码解耦，可整体删除（移除上述 `<script>` 行即可回到英文原版）。
