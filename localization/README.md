@@ -495,6 +495,41 @@ DOM 观察器拿到的是这个节点自己的 `nodeValue`，不含标签。词�
 否则 `<img src='resources/iridite.png'>` 里的资源路径会被改写。
 做法是按 `<[^>]*>` 切段，只对非标签段做 `(?<![A-Za-z])词(?![A-Za-z])` 替换。
 
+### 第 24 条：片段键的「首字母大小写」是两份不同的键
+
+源码 `js/DarkAU1/aniciffo.js` 写的是 `" Temporal Radiation Stones"`（首字母大写），
+词典里只有小写 `" temporal radiation stones"` → 只译出「辐射石」，`Temporal` 原样留着，
+页面上就是 `价格：2,048 Temporal 辐射石`。
+
+**判据**：同一个名词在源码里大小写不统一时，两种拼法都要建键；
+最稳的做法是直接建「带前导空格 + 源码原样大小写」的整段（`" Temporal Radiation Stones"`），
+起点与原短键相同、长度更长，左优先里必胜。
+
+### 第 25 条：短数字键会抢后面的名词（`"1 time"` 吃掉 `"1 time capsules"`）
+
+`zh_CN.js` 里有一条 `"1 time": "1 次"`（为 tavDomain 的
+`"You have exponentiated " + n + " time"` 而建）。它起点在数字上，
+于是 `"You will store 1 time capsules when you leave D1."` 被切成
+`你将储存 1 次 capsules…`。
+
+数字 + 量词的键必须**带上后面的名词**（`"1 time capsules"` → `"1 个时间胶囊"`），
+并且与旧短键**同起点、更长**才能赢。单纯「删掉旧键」不可行 —— 那条
+`exponentiated 1 time` 会立刻退回英文。
+
+### 第 26 条：带前导空格的键，上游可能已经把空格吃掉 —— 两种版本都要备
+
+`"</h3> kres points per second. …"` 这类「含标签」的既有键会连 `</h3>` 后面的空格一起吞掉，
+扫描位置落在 `kres` 上，于是 `" kres points …"`（带前导空格）**永远失配**，
+只有 `"kres points …"`（不带）能命中。同理反向也会发生。
+**凡是给「标签后面紧跟的一段文字」建键，带空格与不带各写一条。**
+
+### 第 27 条：不带句号的片段键会留下英文句号 + 生硬语序
+
+`"on universe reset": "宇宙重置时"`、`"when you leave D1": "离开 D1 时"` 这类片段
+会让整句渲染成 `你将储存 +12 星钢合金 宇宙重置时.`（缺连接词、句号还是半角）。
+补一条带前导空格与句号的整段（`" on universe reset."` → `"，宇宙重置时结算。"`），
+同起点更长即胜出，语序与标点一起修好。
+
 ## 说明
 
 - 本汉化层与原游戏源码解耦，可整体删除（移除上述 `<script>` 行即可回到英文原版）。
