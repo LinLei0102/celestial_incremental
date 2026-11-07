@@ -468,6 +468,33 @@ walk(nd, big ? Infinity : undefined);
 逐个丢给真实引擎翻译，剥掉 HTML 标签后仍有英文单词的就列出来
 （95 个调用 / 276 条字面量，目前只剩「半截 span 标签」与 `WOW!` 属正常）。
 
+### 第 22 条：DOM 观察器逐「文本节点」翻译 —— 含标签的整键救不了它
+
+`translate()` 单测里 `<small>[Cap x5]</small>` 能译成 `<small>[上限 x5]</small>`，
+但游戏里蜂巢「蜂面包」页签仍然显示英文 `[Cap x5]`。
+
+原因：Vue 渲染后，`[Cap x5]` 是 `<small>` 元素下的**独立文本节点**，
+DOM 观察器拿到的是这个节点自己的 `nodeValue`，不含标签。词典里只有
+`"<small>[Cap "`（含标签的整键），节点级自然永不命中。
+同理 `Stagnant<br>Synestia SPVs` 被 `<br>` 拆成两个节点，
+`Stagnant` 与 `Synestia SPVs` 各要一条键。
+
+**判据**：凡是模板里「标签把文字切断」的地方，除了整键，还要给**切出来的每一段**
+单独建键。排查办法：`probe_endgame_scan.js` 的 leftovers 里若是
+「纯英文 + 短小 + 与某个整键的后半截完全一致」，基本就是这一类。
+
+本轮补的 3 条：`"[Cap " → "[上限 "`、`"Stagnant" → "停滞的"`、
+`"Synestia SPVs" → "Synestia SPV"`。
+注意 `"[Cap "` 不会盖掉 `"<small>[Cap "`：后者起点更靠左，左优先胜出。
+
+### 第 23 条：专名大小写统一（aleph / iridite / zar / cante / gwa）
+
+术语表把正式写法定为 **Aleph / Iridite / Zar / Cante / Gwa**，
+但更新日志里有 51 条译文沿用了上游作者的小写写法（`iridite 区域`、`zar 升级`）。
+统一成大写时注意：**只改 value，不碰 key**；且要跳过 HTML 标签内部，
+否则 `<img src='resources/iridite.png'>` 里的资源路径会被改写。
+做法是按 `<[^>]*>` 切段，只对非标签段做 `(?<![A-Za-z])词(?![A-Za-z])` 替换。
+
 ## 说明
 
 - 本汉化层与原游戏源码解耦，可整体删除（移除上述 `<script>` 行即可回到英文原版）。
