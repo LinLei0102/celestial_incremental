@@ -111,7 +111,7 @@
     function idShape(s) {
         // 元素-质量数（Carbon-14 / Uranium-235 / Einsteinium-253 …）不是内部 id，
         // 其短横线是化学命名的一部分，必须允许译文里保留 '-'。
-        if (/^[A-Z][a-z]+-\d+$/.test(s)) return false;
+        if (/^[A-Za-z][a-z]+-\d+$/.test(s) && !/^Refinements-/i.test(s)) return false;
         return /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+$/.test(s);
     }
 
@@ -179,6 +179,11 @@
     ['Z-Jinx'].forEach(function (t) { ID_SAFE[t] = 1; });
 
     function isDisplayName(t) {
+        // 同位素名（Carbon-14 / carbon-14 / Dysprosium-154 …）：短横线是化学命名的一部分，
+        // 既不是内部 id，也不该被掩码。大小写都认（源码小写、界面可能大写）。
+        // 例外：Refinements-17 是公式变量名（js/Hex/blessings.js:639 `(Refinements-17)^1.6`），
+        // 保留英文，不参与翻译。
+        if (/^[A-Za-z][a-z]+-\d+$/.test(t) && !/^Refinements-/i.test(t)) return true;
         return ID_SAFE[t] === 1;
     }
 

@@ -358,6 +358,42 @@ aniciffo 层「彩色辐射」页的写法是：
 
 排查手段：`_audit/probe_color.js`（摆假存档 → 切到 ani 层 `Color Radiation` → 抓文本节点）。
 
+### 17. 同位素名（`carbon-14`）被当成内部 id 掩码 —— 小写首字母的漏网
+
+`decay.js` / `punchcards.js` 里大量出现化学同位素名：
+
+```js
+"which are boosting carbon-14 gain by x"
+... + " carbon-14.<br>(based on dark grass)</h3>"
+x + " to alpha particle gain (based on universe resets)<br>"
+```
+
+`ID_SCAN = /[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+/g` 会把 `carbon-14` 整个当 id 掩码，
+于是**含它的整句键在拼接语境下全部失配**（只剩 `which are boosting carbon-14 获取 x`）。
+
+引擎里有两道闸，别改错地方：
+
+| 闸 | 作用范围 | 原有例外 |
+|---|---|---|
+| `idShape()` | **只**用于 exact 整串分支 | `^[A-Z][a-z]+-\d+$`（大写首字母） |
+| `isDisplayName()` → `ID_SAFE` | fragment 主正则掩码 | 规则①②（译文干净 / 原文保留） |
+
+同位素译文「碳-14」含 `-`、也不含英文原文，规则①②都不满足，所以**必须**在
+`isDisplayName()` 里放行：
+
+```js
+if (/^[A-Za-z][a-z]+-\d+$/.test(t) && !/^Refinements-/i.test(t)) return true;
+```
+
+`Refinements-17` 是**反例**：它是 `js/Hex/blessings.js:639` 的公式变量名
+`(Refinements-17)^1.6`，放行会被译成「精炼-17」破坏公式，必须排除。
+
+验证方式：
+- `_audit/t_idsafe_risk.js`（`RISK_BEFORE=<旧 i18n.js>`）应只剩**同位素名差异**，
+  非同位素差异 0（本轮 238 条差异全部是 17 个同位素 × 14 种上下文）。
+- `_audit/t_dec.js` 覆盖 36 条衰变层 / 穿孔卡文本。
+- `_audit/probe_dec.js` 真机切 `dec` 层 Main，残留英文应为 0。
+
 ## 说明
 
 - 本汉化层与原游戏源码解耦，可整体删除（移除上述 `<script>` 行即可回到英文原版）。
