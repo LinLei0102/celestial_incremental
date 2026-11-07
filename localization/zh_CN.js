@@ -14607,6 +14607,20 @@ window.CELESTIAL_I18N = {
       "Red Multiplier": "红色倍率",
       "Yellow Multiplier": "黄色倍率",
       "Space Multiplier": "空间倍率",
+      // 第二十六轮：尾部 <br> 整键的节点级等价键（DOM 逐文本节点翻译时用）
+      "Keep pollen path automation upgrades on nest resets": "巢重置时保留花粉路线自动化升级",
+      "Keep nectar path automation upgrades on nest resets": "巢重置时保留花蜜路线自动化升级",
+      "Add one to time capsules stored on universe exit": "退出宇宙时额外存储一个时间胶囊",
+      "Reduce flower cooldowns based on trees chopped": "根据砍伐的树木减少花朵冷却",
+      "Improve \"More Bark\" based on purchases": "根据购买次数强化“更多树皮”",
+      "Factors unlock with Grass Study III.": "因子随草地研究 III 解锁。",
+      "Increase golden seeds based on nests": "根据巢数量提升金色种子",
+      "Unlocks new decay/stability buyables": "解锁新的衰变/稳定度可购项",
+      "Increase min and max tree mult": "提升树木最小与最大倍率",
+      "Boost mind radiation gain": "提升心灵辐射获取",
+      "Unlocks alpha particles": "解锁 α 粒子",
+      "Increase picking power": "提升采摘力",
+      "Boost nest gain": "提升巢穴获取",
     },
 
     fragment: {

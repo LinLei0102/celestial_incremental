@@ -550,6 +550,53 @@ DOM 观察器拿到的是这个节点自己的 `nodeValue`，不含标签。词�
 
 判断是否漏：`_audit/t_to.js <文件>` 会列出「译完仍残留 `to` 或 `(based on`」的字面量。
 
+### 第 30 条：含标签的整键，在「文本节点」层面永远命不中
+
+游戏里「解锁 α 粒子」那一行显示成 `解锁 alpha particles`。
+词典明明有 `"Unlocks alpha particles<br>"`，为什么只用片段译了半个？
+
+因为 DOM 观察器拿的是**文本节点的 nodeValue**：`<br>` 是元素，不在 nodeValue 里。
+节点值是 `Unlocks alpha particles`，与带 `<br>` 的键不等，于是只有 `"Unlocks "` 这个短键命中。
+
+**排查**：`_audit/_stat_br.js` 会列出「所有以 `<br>` 结尾、去掉 `<br>` 后节点级仍有残留」的键。
+本轮共 13 条（`Unlocks alpha particles`、`Boost nest gain`、`Increase picking power` …），
+一律补一条**不带 `<br>`** 的 exact 键，值是原值去掉尾部 `<br>`。
+
+### 第 31 条：整块对齐 —— 让 `<h3>标题</h3>正文` 这类整键重新生效
+
+`"<h3>Unfair Coinflip</h3><hr>Have 10x more heads…"` 在 DOM 里是 3 个文本节点，
+逐节点只能各译各的，正文整句无键 → 半英文。全库这类「被标签切开且节点级漏翻」共 **514 条**。
+
+`i18n.js` 的 `applyBlock()` 解决了它：walk 处理元素时，若 `el.innerHTML` 整段命中 exact 键，
+就按标签把原文/译文切开，把译文的文本段**逐节点写回**（不动 DOM 结构，Vue 安全）。
+命中即接管，不再逐节点下钻。514 条里 466 条（91%）可修，其余 48 条见下条。
+
+三个必须注意的点：
+
+1. **比对前要规范化标签引号**。浏览器把 `style='x'` 序列化成 `style="x"`，
+   而词典键全是单引号 —— 直接比对 `innerHTML` 与键永远不相等。用 `normTag()` 只替换标签内的引号。
+2. **文本节点必须深度优先正序收集**。第一版用「for j = len-1 downto 0 就 push」，
+   得到的是逆序，译文被反着填回（`不公掷币` 跑到最后一行）。
+3. **译文分段常常少于原文**。历史译文把 `<br>` 并成了一句
+   （`"How many nectars<br>are there!?!"` → `"到底有多少种花蜜？！"`），
+   严格相等会全部回退。允许「译文段 ≤ 原文段」，多余节点写空串（合并成一行）。
+
+只有「译文段 > 原文段」或整块不含标签时才回退逐节点。
+
+### 第 32 条：改完 `i18n.js` 一定要给探针禁用 HTTP 缓存
+
+本轮改了四版 `applyBlock` 全部「不生效」，最后发现 Edge 一直用缓存里的旧 `i18n.js`
+（`window.__CI18N_VER` 打出来是 `(none)`）。`probe_eval.js` / `probe_endgame_scan.js`
+现在都加了：
+
+```js
+await send("Network.enable");
+await send("Network.setCacheDisabled", { cacheDisabled: true });
+```
+
+**凡改动 `localization/*.js`，先确认探针读的是新文件再判断效果**，否则会怀疑人生。
+辅助办法：在文件里加 `window.__CI18N_VER = "r26-block"` 之类标记，expr 里读一下就知道。
+
 ## 说明
 
 - 本汉化层与原游戏源码解耦，可整体删除（移除上述 `<script>` 行即可回到英文原版）。

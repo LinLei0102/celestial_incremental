@@ -720,6 +720,7 @@
     //   均不经过 run/translate 钩子，只能靠观察 DOM 文本节点补翻）
     // ------------------------------------------------------------------
     (function hookDom() {
+        try { window.__CI18N_VER = "r26-block"; } catch (e) {}
         if (!window.MutationObserver || !window.document) return;
         // 第五轮：单次新增子树遍历上限由 300 提高到 1500 —— 大型升级网格/设置页
         // 一次插入的子树常超 300 节点，旧上限会截断后续静态文本节点（如 upgrade 的
@@ -729,6 +730,68 @@
         // 会生成 3000+ 节点，远超 1500 的步进上限 —— 被截断的后半截文本节点此后永不重插，
         // 于是出现「日志前一半中文、后一半英文」。按新增子树的文本量判定：超长块不设上限。
         var BIG_BLOCK = 8000;
+        // 第二十六轮：整块对齐 —— 元素 innerHTML 若整段命中 exact 键，按标签序列把译文
+        // 逐文本节点写回。解决「<h3>标题</h3>正文」被拆成两个节点后正文整句漏翻的问题。
+        // 只在标签序列逐字相同时才动手，否则返回 false 走原来的逐节点路径。
+        var SEG_RE = /(<[^>]*>)/;
+        var BLOCK_MAX = 2000;
+        // 浏览器序列化会把 style='x' 写成 style="x"，词典键是单引号 —— 比对前统一标签引号
+        function normTag(s) {
+            return s.replace(/(<[^>]*>)/g, function (t) { return t.replace(/'/g, '"'); });
+        }
+        var blockIdx = null;
+        function getBlockIdx() {
+            if (blockIdx) return blockIdx;
+            blockIdx = {};
+            for (var k in exact) {
+                if (k.indexOf("<") < 0 || k.length > BLOCK_MAX) continue;
+                var nk = normTag(k);
+                if (!(nk in blockIdx)) blockIdx[nk] = k;
+            }
+            return blockIdx;
+        }
+        function applyBlock(el) {
+            if (lang === "en") return false;
+            var html;
+            try { html = el.innerHTML; } catch (e) { return false; }
+            if (!html || html.length > BLOCK_MAX) return false;
+            if (html.indexOf("<") < 0) return false;            // 无标签：逐节点即可
+            var idx = getBlockIdx();
+            var key = null;
+            if (Object.prototype.hasOwnProperty.call(idx, html)) key = idx[html];
+            else {
+                var nh = normTag(html);
+                if (Object.prototype.hasOwnProperty.call(idx, nh)) key = idx[nh];
+            }
+            if (key === null) return false;
+            var dstr = exact[key];
+            if (typeof dstr !== "string" || dstr === key) return false;
+            // 只按「文本段数量」对齐：历史译文常不严格保留 <br> 结构，逐标签比对会全部落空
+            var a = html.split(SEG_RE), b = normTag(dstr).split(SEG_RE);
+            var aTexts = [], bTexts = [], i;
+            for (i = 0; i < a.length; i += 2) if (a[i].length) aTexts.push(a[i]);
+            for (i = 0; i < b.length; i += 2) if (b[i].length) bTexts.push(b[i]);
+            // 允许译文分段少于原文（历史译文常把多行并成一句）：多余节点填空，合并成一行
+            if (!aTexts.length || !bTexts.length || bTexts.length > aTexts.length) return false;
+            var pairs = bTexts.slice();
+            while (pairs.length < aTexts.length) pairs.push("");
+            // 收集元素下所有文本节点（严格文档序：深度优先正序）
+            var nodes = [];
+            (function rec(n) {
+                var kids = n.childNodes;
+                for (var j = 0; j < kids.length; j++) {
+                    var cn = kids[j];
+                    if (cn.nodeType === 3) nodes.push(cn);
+                    else if (cn.nodeType === 1 && cn.tagName !== "SCRIPT" && cn.tagName !== "STYLE") rec(cn);
+                }
+            })(el);
+            if (nodes.length !== pairs.length) return false;        // 结构对不齐，交给逐节点
+            for (i = 0; i < nodes.length; i++) {
+                if (nodes[i].nodeValue !== pairs[i]) nodes[i].nodeValue = pairs[i];
+            }
+            return true;    // 命中即接管，不再逐节点下钻（避免二次翻译中文）
+        }
+
         // budget 可由调用方覆盖（启动全量扫描传 Infinity）
         function walk(node, budget) {
             var limit = (typeof budget === "number") ? budget : MAX_WALK;
@@ -748,6 +811,8 @@
                 if (n.nodeType !== 1) continue; // 只处理元素与文本
                 var tag = n.tagName;
                 if (tag === "SCRIPT" || tag === "STYLE" || tag === "TEXTAREA") continue;
+                // 第二十六轮：先试整块对齐；命中就不必再逐节点下钻
+                if (n.childNodes.length > 1 && applyBlock(n)) continue;
                 for (var i = n.childNodes.length - 1; i >= 0; i--) stack.push(n.childNodes[i]);
             }
         }
